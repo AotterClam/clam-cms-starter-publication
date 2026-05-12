@@ -38,6 +38,20 @@ clam-cms-starters/
     └── wrangler.toml
 ```
 
+## Source map (`sources.json`)
+
+`sources.json` at the repo root is the authoritative dispatch from
+archetype / theme key → starter directory + overlays. `create-clam-cms`
+fetches it at runtime (`raw.githubusercontent.com/AotterClam/clam-cms-starters/<ref>/sources.json`)
+on every install. Adding an archetype or theme = update this file; no
+`create-clam-cms` republish needed unless merge logic changes.
+
+The current shape predates the 1:1 starter split — `presence` and
+`publication` both resolve to `publication/`, and `intake` carries an
+overlay that does not yet exist (the merger silently skips missing
+overlay paths). After the split lands the paths get updated; consumers
+pick up the change on the next install.
+
 ## Install merge order
 
 For each archetype, `create-clam-cms` extracts files in this order
@@ -60,9 +74,9 @@ for the macro list.
 3. If the starter needs to extend `_common/AGENTS.md` or
    `_common/mantle/site.md`, add `overlay/AGENTS.md.append` and/or
    `overlay/mantle/site.md.append` per ADR-0016.
-4. Add a corresponding entry to the source map in
-   `AotterClam/clam-cms` `packages/create-clam-cms/src/sources.ts`.
-5. Ship a new `create-clam-cms` version.
+4. Add a corresponding entry to `sources.json` at this repo's root.
+   Runtime fetch picks it up on the next install — no `create-clam-cms`
+   republish required unless merge logic changes.
 
 ## Per-starter testing
 
