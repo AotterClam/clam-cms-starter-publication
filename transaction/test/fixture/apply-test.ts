@@ -34,10 +34,18 @@ function buildFixtureSql(): string {
     lines.push(`-- migration ${m.id}: ${m.description}`);
     lines.push(m.sql);
   }
-  lines.push("-- 2. site_config row so the runtime boot's locale validator passes.");
+  lines.push("-- 2. site_config key/value rows for the current runtime migration.");
+  const siteConfig = {
+    brand: "Clam Transaction (test)",
+    title: "Clam Transaction (test)",
+    description: "fixture",
+    origin: "http://localhost:8788",
+    locales: ["en"],
+    updated_at: NOW,
+  };
   lines.push(
-    `INSERT OR IGNORE INTO site_config (id, brand, title, description, origin, locales, updated_at) VALUES (` +
-      `'site', 'Clam Transaction (test)', 'Clam Transaction (test)', 'fixture', 'http://localhost:8788', '["en"]', ${NOW});`,
+    `INSERT OR IGNORE INTO site_config (key, value) VALUES (` +
+      `'site', '${JSON.stringify(siteConfig).replace(/'/g, "''")}');`,
   );
   lines.push("-- 3. one published product + en translation");
   const productData = {
@@ -100,7 +108,15 @@ function main(): void {
   const sql = buildFixtureSql();
   const path = ".wrangler-test/fixture.sql";
   writeFileSync(path, sql);
-  const flags = ["d1", "execute", "DB", "--env=test", "--local", `--file=${path}`];
+  const flags = [
+    "d1",
+    "execute",
+    "DB",
+    "--env=test",
+    "--local",
+    "--persist-to=.wrangler-test",
+    `--file=${path}`,
+  ];
   execFileSync("pnpm", ["exec", "wrangler", ...flags], { stdio: "inherit" });
   console.log("fixture applied");
 }

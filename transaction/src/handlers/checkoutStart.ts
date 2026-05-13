@@ -32,6 +32,7 @@ interface CartState {
 
 export interface CheckoutStartEnv extends PaymentEnv {
   readonly KV: KVNamespace;
+  readonly DB: D1Database;
   readonly INVENTORY_ACTOR: DurableObjectNamespace;
   readonly TURNSTILE_SECRET_KEY?: string;
 }
@@ -50,7 +51,7 @@ export interface CheckoutStartOutput {
 }
 
 export function buildCheckoutStart(env: CheckoutStartEnv): AnyHandler {
-  return defineHandler<CheckoutStartInput, CheckoutStartOutput>(async (input, ctx) => {
+  return defineHandler<CheckoutStartInput, CheckoutStartOutput>(async (input, _ctx) => {
     if (!input.cartId || !input.customerEmail) {
       throw new Error("checkoutStart: missing cartId / customerEmail");
     }
@@ -65,7 +66,7 @@ export function buildCheckoutStart(env: CheckoutStartEnv): AnyHandler {
     }
 
     // 3. Look up prices + currency
-    const catalog = await loadProductCatalog(ctx.runtime);
+    const catalog = await loadProductCatalog(env.DB);
     const enrichedItems = cart.items.map((item) => {
       const product = catalog.bySlug.get(item.productSlug);
       if (!product) {
@@ -161,4 +162,3 @@ function generateOrderId(): string {
   // CSPRNG entropy — collision-resistant in practice.
   return `o_${crypto.randomUUID()}`;
 }
-

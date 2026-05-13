@@ -10,6 +10,8 @@ applies_to: clam-cms@v0.1.0
 
 # `transaction` archetype
 
+> **Tracked inventory payment rule:** do **not** enable delayed-settlement methods such as ATM, ACH, SEPA, Bacs, bank transfer, or delayed BLIK while products use `inventoryMode: tracked`. Their success callback can arrive after the 10-minute reservation TTL, which can oversell stock. Disable those payment methods at the provider dashboard, or set the affected products to `inventoryMode: untracked`.
+
 Follow [the install SKILL](../SKILL.md). Use your normal Claude Code agent register throughout install — Mantle's voice is for the welcome letter only, not for interview / refuse / adjustment / provider-wiring.
 
 ## What this is
@@ -51,7 +53,7 @@ Per-product setting via the `inventoryMode` Schema field: `tracked` or `untracke
 
 **Compatibility constraint — tracked + provider type:** Tracked inventory relies on the `InventoryActor`'s 10-minute reservation TTL. If the customer pays via an **immediate-capture** flow (Stripe Checkout cards, Paddle, Lemon Squeezy, ECPay credit-card, PayUni credit-card — anything where the success callback fires within seconds), tracked mode works as advertised: reservation holds until `commit(orderId)` lands.
 
-If the customer pays via a **delayed-settlement** flow (Stripe ACH / SEPA / Bacs / iDEAL bank transfer, ECPay ATM转账, PayUni ATM, BLIK delayed) the success callback can land **hours or days later** — past the 10-minute reservation window. By then the reservation has been auto-released; `commit(orderId)` becomes a no-op and the order row is created without decrementing stock. Result: stock oversells.
+If the customer pays via a **delayed-settlement** flow (Stripe ACH / SEPA / Bacs / iDEAL bank transfer, ECPay ATM transfer, PayUni ATM, BLIK delayed) the success callback can land **hours or days later** — past the 10-minute reservation window. By then the reservation has been auto-released; `commit(orderId)` becomes a no-op and the order row is created without decrementing stock. Result: stock oversells.
 
 If the user's provider answer includes delayed-settlement methods AND they want tracked inventory, either:
   1. Disable the delayed methods at the provider dashboard (cards only), OR
@@ -160,7 +162,7 @@ What ships:
 - **Schemas**: `products`, `product-translations`, `orders`, `order_items`, `inventory_snapshots`.
 - **Views**: `products-public`, `product-by-slug`, `orders-recent` (staff), `order-by-number`, `inventory-low` (staff).
 - **Procedures**: `add-to-cart`, `checkout-start`, `checkout-confirm`, `checkout-return`, `read-order-status`, `snapshot-inventory`, `restock-product` (staff-only via `requires.auth.all: [{ ctx.staff: [owner] }]`), `enqueue-order-confirmed`.
-- **Triggers**: 3 HTTP routes (`POST /api/cart/add`, `POST /api/checkout/start`, `POST /api/payment/callback`, `POST /staff/api/restock`) + `orders.after_create` lifecycle.
+- **Triggers**: 3 HTTP routes (`POST /api/cart/add`, `POST /api/checkout/start`, `POST /api/payment/callback`, `POST /api/staff/restock`) + `orders.after_create` lifecycle.
 - **DurableObject**: `InventoryActor` (1 per tenant).
 - **Queues**: `payment_callback_queue` + `order_work_queue` (both `max_concurrency: 1`).
 - **Cron**: every 5min `inventory.reconcile.tick` (sweeper + snapshot).

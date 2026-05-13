@@ -13,7 +13,7 @@
  * read-order-status.
  */
 
-import type { AnyHandler, CmsRuntime } from "@aotterclam/clam-cms-runtime";
+import type { AnyHandler } from "@aotterclam/clam-cms-runtime";
 import { buildPaymentProvider, type PaymentEnv } from "../payment/index.js";
 import { defineHandler } from "./_context.js";
 import { orderEntryId } from "./orderConsumer.js";
@@ -40,7 +40,7 @@ export interface CheckoutReturnOutput {
 }
 
 export function buildCheckoutReturn(env: CheckoutReturnEnv): AnyHandler {
-  return defineHandler<CheckoutReturnInput, CheckoutReturnOutput>(async (input, ctx) => {
+  return defineHandler<CheckoutReturnInput, CheckoutReturnOutput>(async (input, _ctx) => {
     if (!input.requestUrl && !input.orderId) {
       throw new Error(
         "checkoutReturn: provide either requestUrl (with signed params) or orderId",
@@ -61,7 +61,7 @@ export function buildCheckoutReturn(env: CheckoutReturnEnv): AnyHandler {
       providerStatus = verified.status;
       orderId = verified.orderId;
     }
-    const existing = await lookupOrder(ctx.runtime, orderId);
+    const existing = await lookupOrder(env.DB, orderId);
     return {
       orderId,
       providerStatus,
@@ -72,34 +72,19 @@ export function buildCheckoutReturn(env: CheckoutReturnEnv): AnyHandler {
 }
 
 async function lookupOrder(
-  runtime: CmsRuntime,
+  db: D1Database,
   orderId: string,
 ): Promise<{ orderId: string; orderStatus: string } | null> {
   if (!orderId) return null;
-  try {
-    const row = await runtime.getEntry.execute({
-      id: orderEntryId(orderId),
-      collection: "orders",
-    });
-    const d = row.data as { orderNumber?: string; orderStatus?: string };
-    return {
-      orderId: d.orderNumber ?? orderId,
-      orderStatus: d.orderStatus ?? "placed",
-    };
-  } catch (err) {
-    // Not-found is the expected "callback hasn't fired yet" case.
-    if (isNotFoundError(err)) return null;
-    throw err;
-  }
+  const row = await db.prepare(
+    `SELECT data FROM entries WHERE id = ? AND collection = ? LIMIT 1`,
+  )
+    .bind(orderEntryId(orderId), "orders")
+    .first<{ data: string } | null>();
+  if (!row) return null;
+  const d = JSON.parse(row.data) as { orderNumber?: string; orderStatus?: string };
+  return {
+    orderId: d.orderNumber ?? orderId,
+    orderStatus: d.orderStatus ?? "placed",
+  };
 }
-
-function isNotFoundError(err: unknown): boolean {
-  if (err instanceof Error) {
-    const message = err.message ?? "";
-    if (/not.?found|ENTRY_NOT_FOUND/i.test(message)) return true;
-    const diag = (err as { diagnostic?: { code?: string } }).diagnostic;
-    if (diag && diag.code === "ENTRY_NOT_FOUND") return true;
-  }
-  return false;
-}
-

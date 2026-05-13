@@ -13,6 +13,9 @@ import { csrfGuard } from "./csrf.js";
 import { invokeHandler } from "./handlers/_context.js";
 import { buildQueueDispatcher, sendOrderWork } from "./handlers/orderConsumer.js";
 import { loadProductCatalog } from "./handlers/_productEnrichment.js";
+import { buildAddToCart } from "./handlers/addToCart.js";
+import { buildCheckoutStart } from "./handlers/checkoutStart.js";
+import { buildCheckoutConfirm } from "./handlers/checkoutConfirm.js";
 import { buildReadOrderStatus } from "./handlers/readOrderStatus.js";
 import { buildReadCart } from "./handlers/readCart.js";
 import { buildCheckoutReturn } from "./handlers/checkoutReturn.js";
@@ -83,7 +86,61 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   // gating rationale.
   app.use("/api/cart/add", csrfGuard);
   app.use("/api/checkout/start", csrfGuard);
-  app.use("/staff/api/restock", csrfGuard);
+  app.use("/api/staff/restock", csrfGuard);
+
+  // Customer-facing transaction endpoints return the raw handler
+  // payload the bundled HTML expects. The manifest Triggers remain
+  // for atom introspection / MCP, but the adapter's generic HTTP
+  // Trigger transport wraps responses as `{ ok, data }` and cannot
+  // pass raw provider callback envelopes.
+  const addToCart = buildAddToCart(env);
+  const checkoutStart = buildCheckoutStart(env);
+  const checkoutConfirm = buildCheckoutConfirm(env);
+
+  app.post("/api/cart/add", async (c) => {
+    try {
+      const runtime = await cms.get();
+      const input = await c.req.json();
+      const result = await invokeHandler(addToCart, input, { runtime });
+      return c.json(result as Record<string, unknown>);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.text(msg, 500);
+    }
+  });
+
+  app.post("/api/checkout/start", async (c) => {
+    try {
+      const runtime = await cms.get();
+      const input = await c.req.json();
+      const result = await invokeHandler(checkoutStart, input, { runtime });
+      return c.json(result as Record<string, unknown>);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.text(msg, 500);
+    }
+  });
+
+  app.post("/api/payment/callback", async (c) => {
+    try {
+      const runtime = await cms.get();
+      const requestHeaders = Object.fromEntries(c.req.raw.headers.entries());
+      const result = await invokeHandler(
+        checkoutConfirm,
+        {
+          requestUrl: c.req.url,
+          requestBody: await c.req.text(),
+          requestHeaders,
+          requestMethod: c.req.method,
+        },
+        { runtime },
+      );
+      return c.json(result as Record<string, unknown>);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.text(msg, 500);
+    }
+  });
 
   mountServerEndpoints(app, cms);
   mountMcp(app, cms, {
@@ -102,7 +159,7 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   // `handlers/index.ts` registry — same code reachable through MCP
   // and POST Triggers. The duplication here is just to expose them
   // via GET, which v0.1's Trigger.source.method enum doesn't cover.
-  const readOrderStatus = buildReadOrderStatus();
+  const readOrderStatus = buildReadOrderStatus(env);
   const readCart = buildReadCart(env);
   const checkoutReturn = buildCheckoutReturn(env);
 
@@ -110,11 +167,10 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
     const orderId = c.req.query("orderId") ?? "";
     if (!orderId) return c.json({ error: "missing orderId" }, 400);
     try {
-      const runtime = await cms.get();
       const result = await invokeHandler<{ orderId: string }, unknown>(
         readOrderStatus,
         { orderId },
-        { runtime },
+        { runtime: await cms.get() },
       );
       return c.json(result as Record<string, unknown>);
     } catch (err) {
@@ -133,11 +189,10 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   // surfaces whatever state actually persisted.
   app.get("/api/payment/return", async (c) => {
     try {
-      const runtime = await cms.get();
       const result = (await invokeHandler<{ requestUrl: string }, unknown>(
         checkoutReturn,
         { requestUrl: c.req.url },
-        { runtime },
+        { runtime: await cms.get() },
       )) as { orderId?: string };
       const orderId = result.orderId ?? c.req.query("orderId") ?? "";
       if (!orderId) {
@@ -160,11 +215,10 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
     const cartId = c.req.query("cartId") ?? "";
     if (!cartId) return c.json({ error: "missing cartId" }, 400);
     try {
-      const runtime = await cms.get();
       const result = (await invokeHandler<{ cartId: string }, unknown>(
         readCart,
         { cartId },
-        { runtime },
+        { runtime: await cms.get() },
       )) as { exists?: boolean };
       // 404 on missing cart so the client can branch without parsing.
       if (result.exists === false) {
@@ -184,8 +238,8 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
 
   app.get("/", async (c) => {
     try {
-      const runtime = await cms.get();
-      const catalog = await loadProductCatalog(runtime);
+      await cms.get();
+      const catalog = await loadProductCatalog(env.DB);
       return c.html(renderProductList({ products: catalog.rows }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -196,8 +250,8 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   app.get("/product/:slug", async (c) => {
     const slug = c.req.param("slug");
     try {
-      const runtime = await cms.get();
-      const catalog = await loadProductCatalog(runtime);
+      await cms.get();
+      const catalog = await loadProductCatalog(env.DB);
       const product = catalog.bySlug.get(slug);
       if (!product) return c.text("not found", 404);
       return c.html(renderProductDetail({ product }));
@@ -214,7 +268,7 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   );
 
   // Test-only bypass: seed InventoryActor stock without going through
-  // the staff-gated `/staff/api/restock` (which needs a real session
+  // the staff-gated `/api/staff/restock` (which needs a real session
   // cookie). Gated on the SAME flag that gates FakeProvider, so this
   // is impossible to hit in production unless an operator explicitly
   // sets FAKE_PAYMENT_PROVIDER=1 (which would also disable real

@@ -106,8 +106,12 @@ export interface ConsumerEnv {
  *        succeeded → INSERT OR IGNORE order row + items; commit
  *          reservation (if one matches this orderId); enqueue
  *          `order.confirmed` for downstream.
- *        failed    → release reservation if any.
- *        expired   → release reservation if any.
+ *        failed    → do not create an order and do not release the
+ *          reservation yet. Card declines / requires_payment_method
+ *          events can later become succeeded on the same orderId.
+ *          The reservation TTL releases abandoned failures.
+ *        expired   → release reservation if any; the checkout is
+ *          terminally abandoned / cancelled.
  *   3. markCompleted(event.id).
  *   4. msg.ack().
  *
@@ -120,6 +124,8 @@ export interface ConsumerEnv {
  *   - order row INSERT OR IGNORE on entries.id (deterministic from
  *     event.orderId) — second write is no-op.
  *   - inventory commit no-ops if the reservation is already consumed.
+ *   - inventory release only runs for terminal expiry/cancel events;
+ *     non-terminal failures keep the reservation until success or TTL.
  *   - downstream `order.confirmed` enqueue is OK to fire twice
  *     (orderWorkConsumer dedups via confirmation_emailed_at).
  */
@@ -184,6 +190,12 @@ async function processCallback(
       await commitOrder(event, inv, env);
       break;
     case "failed":
+      // Treat `failed` as a recoverable payment-attempt failure. Stripe
+      // PaymentIntents can emit declined-card / requires_payment_method
+      // events and later succeed with a new event id on the same orderId.
+      // Keeping the reservation until TTL prevents a later success from
+      // creating a paid order whose tracked inventory was already released.
+      break;
     case "expired":
       await releaseIfReserved(event, inv, env);
       break;
@@ -261,11 +273,12 @@ async function commitOrder(
  * upstream means this `data` is never written. We don't distinguish
  * the cases here.
  *
- * NOTE: failed/expired callbacks do NOT delete the stash (see
- * `releaseIfReserved`). Stripe payment intents can transition through
- * `requires_payment_method` (a `failed`-shaped event) and back to
- * `succeeded` with a new event_id; we want the retry to still find
- * the cart so the eventual order row has line items.
+ * NOTE: failed callbacks do NOT release inventory and failed/expired
+ * callbacks do NOT delete the stash. Stripe payment intents can
+ * transition through `requires_payment_method` (a `failed`-shaped
+ * event) and back to `succeeded` with a new event_id; we want the
+ * retry to still find the cart and the reservation so the eventual
+ * order row has line items and tracked inventory commits correctly.
  */
 function buildOrderRowData(
   event: PaymentCallbackMessage,
@@ -312,8 +325,8 @@ async function releaseIfReserved(
 ): Promise<void> {
   // Reservation is keyed by orderId (see InventoryActor); release is
   // idempotent — no-op if the reservation was already released by
-  // the 10-min TTL alarm OR by a prior failed/expired callback for
-  // the same order.
+  // the 10-min TTL alarm OR by a prior expired callback for the same
+  // order.
   //
   // We deliberately do NOT delete the KV cart stash here. Stripe
   // payment intents can move through `failed`-shaped events (e.g.
@@ -508,4 +521,3 @@ export function buildQueueDispatcher(env: ConsumerEnv): (
     }
   };
 }
-

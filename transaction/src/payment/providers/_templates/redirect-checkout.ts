@@ -74,10 +74,17 @@ export class RedirectCheckoutTemplate implements PaymentProvider {
     //   - Lemon Squeezy: HMAC-SHA256 in X-Signature header
     //
     // Then branch on event type:
-    //   - succeeded → status: "succeeded"
-    //   - failed → status: "failed"
-    //   - expired / cancelled → status: "expired"
+    //   - paid / completed / succeeded → status: "succeeded"
+    //   - recoverable attempt failure (e.g. declined card,
+    //     requires_payment_method) → status: "failed". The starter
+    //     keeps tracked-inventory reservations until success or TTL.
+    //   - expired / cancelled checkout session → status: "expired"
     //   - everything else → throw to skip (queue consumer acks)
+    //
+    // Tracked-inventory warning: do NOT enable delayed-settlement
+    // payment methods (ATM, ACH, SEPA, bank transfer, etc.) unless the
+    // products are `untracked`. Their success callback can arrive after
+    // the 10-minute reservation TTL and oversell stock.
     //
     // Extract orderId from event.data.object.metadata.orderId (or
     // wherever this provider stashes merchant-supplied metadata).

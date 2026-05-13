@@ -16,7 +16,7 @@
  * add).
  */
 
-import type { AnyHandler, CmsRuntime } from "@aotterclam/clam-cms-runtime";
+import type { AnyHandler } from "@aotterclam/clam-cms-runtime";
 import { defineHandler } from "./_context.js";
 
 interface CartState {
@@ -36,6 +36,7 @@ const MAX_QTY_PER_LINE = 99;
 
 export interface AddToCartEnv {
   readonly KV: KVNamespace;
+  readonly DB: D1Database;
 }
 
 export interface AddToCartInput {
@@ -57,14 +58,14 @@ export interface AddToCartOutput {
 }
 
 export function buildAddToCart(env: AddToCartEnv): AnyHandler {
-  return defineHandler<AddToCartInput, AddToCartOutput>(async (input, ctx) => {
+  return defineHandler<AddToCartInput, AddToCartOutput>(async (input, _ctx) => {
     if (!input.cartId || !input.productSlug || !input.qty) {
       throw new Error("addToCart: missing cartId / productSlug / qty");
     }
     if (input.qty < 1 || input.qty > MAX_QTY_PER_LINE) {
       throw new Error(`addToCart: qty must be 1..${MAX_QTY_PER_LINE}`);
     }
-    const product = await lookupProduct(ctx.runtime, input.productSlug);
+    const product = await lookupProduct(env.DB, input.productSlug);
     if (!product) {
       throw new Error(`addToCart: unknown productSlug '${input.productSlug}'`);
     }
@@ -84,7 +85,7 @@ export function buildAddToCart(env: AddToCartEnv): AnyHandler {
     // acceptable; multi-product carts can fan-out with Promise.all.
     const productSlugs = next.items.map((i) => i.productSlug);
     const products = await Promise.all(
-      productSlugs.map((slug) => lookupProduct(ctx.runtime, slug)),
+      productSlugs.map((slug) => lookupProduct(env.DB, slug)),
     );
     const enriched = next.items.map((item, idx) => {
       const p = products[idx];
@@ -123,21 +124,23 @@ function coalesce(
 }
 
 async function lookupProduct(
-  runtime: CmsRuntime,
+  db: D1Database,
   slug: string,
 ): Promise<ProductLookup | null> {
-  // Use the runtime's listEntries — filter by collection + slug.
-  // Empty result if not found / not published.
-  const entries = await runtime.listEntries.execute({
-    collection: "products",
-    status: "published",
-    limit: 1000,
-  });
-  const hit = entries.find(
-    (e) => (e.data as { slug?: string }).slug === slug,
+  const hit = await db.prepare(
+    `SELECT data FROM entries
+      WHERE collection = ? AND status = ?
+      ORDER BY updated_at DESC
+      LIMIT 1000`,
+  )
+    .bind("products", "published")
+    .all<{ data: string }>();
+  const row = (hit.results ?? []).find(
+    (e) => (JSON.parse(e.data) as { slug?: string }).slug === slug,
   );
-  if (!hit) return null;
-  const d = hit.data as {
+  if (!row) return null;
+  const data = JSON.parse(row.data) as unknown;
+  const d = data as {
     slug: string;
     priceMinor: number;
     currency: string;
@@ -150,4 +153,3 @@ async function lookupProduct(
     inventoryMode: d.inventoryMode,
   };
 }
-

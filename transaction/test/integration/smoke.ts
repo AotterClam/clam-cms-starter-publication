@@ -37,9 +37,20 @@ let savedOrderId: string | null = null;
 
 check("seeded product appears in products-public view", async () => {
   const res = await expectStatus("/api/views/products-public", 200);
-  const body = await jsonBody<{ entries: Array<{ data: { slug?: string } }> }>(res);
-  if (!body.entries.some((e) => e.data.slug === "smoke-product")) {
-    fail(`smoke-product not in products-public; entries=${JSON.stringify(body.entries)}`);
+  const body = await jsonBody<{
+    entries?: Array<{ data: { slug?: string } }>;
+    data?: {
+      entries?: Array<{ data: { slug?: string } }>;
+      rows?: Array<{ slug?: string }>;
+    };
+  }>(res);
+  const entries = body.entries ?? body.data?.entries ?? [];
+  const rows = body.data?.rows ?? [];
+  if (
+    !entries.some((e) => e.data.slug === "smoke-product") &&
+    !rows.some((r) => r.slug === "smoke-product")
+  ) {
+    fail(`smoke-product not in products-public; body=${JSON.stringify(body)}`);
   }
 });
 
@@ -146,25 +157,33 @@ check("idempotency: same callback event again → no second order row", async ()
   // still exactly one matching order.
   await new Promise((r) => setTimeout(r, 2000));
   const viewRes = await expectStatus("/api/views/orders-recent", 200);
-  const body = await jsonBody<{ entries: Array<{ data: { orderNumber?: string } }> }>(viewRes);
-  const matches = body.entries.filter(
-    (e) => e.data.orderNumber === savedOrderId,
-  );
-  if (matches.length !== 1) {
-    fail(`expected 1 order row for ${savedOrderId}, got ${matches.length}`);
+  const body = await jsonBody<{
+    entries?: Array<{ data: { orderNumber?: string } }>;
+    data?: {
+      entries?: Array<{ data: { orderNumber?: string } }>;
+      rows?: Array<{ orderNumber?: string }>;
+    };
+  }>(viewRes);
+  const entries = body.entries ?? body.data?.entries ?? [];
+  const rows = body.data?.rows ?? [];
+  const matches =
+    entries.filter((e) => e.data.orderNumber === savedOrderId).length +
+    rows.filter((e) => e.orderNumber === savedOrderId).length;
+  if (matches !== 1) {
+    fail(`expected 1 order row for ${savedOrderId}, got ${matches}; body=${JSON.stringify(body)}`);
   }
 });
 
 // ── PR 3 — staff-gated + scheduled handler ───────────────────────────
 
 check(
-  "restockProduct: POST /staff/api/restock unauthenticated → rejected",
+  "restockProduct: POST /api/staff/restock unauthenticated → rejected",
   async () => {
     // Auth-denied shape varies by mount layer in v0.1 — Hono may
     // return 401/403, the procedure dispatcher may return 200 with
     // `{ ok: false, diagnostic }`. Either is fine; the failure mode
     // is a 200 with the success shape (`snapshotQueued: true`).
-    const res = await fetch(`${BASE_URL}/staff/api/restock`, {
+    const res = await fetch(`${BASE_URL}/api/staff/restock`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ productSlug: "tracked-out-of-stock", addQty: 10 }),
@@ -375,6 +394,106 @@ check("paymentCallback: status=expired → no order row created", async () => {
     );
   }
 });
+
+check(
+  "tracked inventory: failed attempt keeps reservation so later success commits stock",
+  async () => {
+    const productSlug = "tracked-out-of-stock";
+    const restockRes = await fetch(`${BASE_URL}/__test/restock`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productSlug, addQty: 1 }),
+    });
+    if (restockRes.status !== 200) {
+      fail(`/__test/restock → ${restockRes.status}: ${(await restockRes.text()).slice(0, 200)}`);
+    }
+
+    const cartId = `failed-then-succeed-${Date.now()}`;
+    await fetch(`${BASE_URL}/api/cart/add`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ cartId, productSlug, qty: 1 }),
+    });
+    const startRes = await fetch(`${BASE_URL}/api/checkout/start`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ cartId, customerEmail: "retry@example.com" }),
+    });
+    if (startRes.status !== 200) {
+      fail(`/api/checkout/start retry case → ${startRes.status}: ${(await startRes.text()).slice(0, 200)}`);
+    }
+    const { orderId } = await jsonBody<{ orderId: string }>(startRes);
+    if (!orderId) fail("no orderId for failed-then-succeed case");
+
+    const failedRes = await fetch(`${BASE_URL}/api/payment/callback`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        eventId: `evt_failed_first_${orderId}`,
+        orderId,
+        status: "failed",
+        amount: { minor: 1000, currency: "USD" },
+        paymentIntentId: `pi_retry_${orderId}`,
+        customerEmail: "retry@example.com",
+      }),
+    });
+    if (failedRes.status !== 200) {
+      fail(`failed callback retry case → ${failedRes.status}: ${(await failedRes.text()).slice(0, 200)}`);
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const succeededRes = await fetch(`${BASE_URL}/api/payment/callback`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        eventId: `evt_succeeded_after_failed_${orderId}`,
+        orderId,
+        status: "succeeded",
+        amount: { minor: 1000, currency: "USD" },
+        paymentIntentId: `pi_retry_${orderId}`,
+        customerEmail: "retry@example.com",
+      }),
+    });
+    if (succeededRes.status !== 200) {
+      fail(`succeeded callback retry case → ${succeededRes.status}: ${(await succeededRes.text()).slice(0, 200)}`);
+    }
+
+    await poll(
+      async () => {
+        const res = await fetch(
+          `${BASE_URL}/api/order/status?orderId=${encodeURIComponent(orderId)}`,
+        );
+        if (res.status !== 200) return null;
+        const body = await jsonBody<{ exists: boolean; orderStatus?: string }>(res);
+        return body.exists && body.orderStatus === "placed" ? body : null;
+      },
+      10_000,
+      `retry order ${orderId} to flip to placed`,
+    );
+
+    const secondCartId = `failed-then-succeed-second-${Date.now()}`;
+    await fetch(`${BASE_URL}/api/cart/add`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ cartId: secondCartId, productSlug, qty: 1 }),
+    });
+    const secondStartRes = await fetch(`${BASE_URL}/api/checkout/start`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        cartId: secondCartId,
+        customerEmail: "second@example.com",
+      }),
+    });
+    if (secondStartRes.status === 200) {
+      fail("expected tracked stock to be committed after failed→succeeded; second checkout unexpectedly reserved stock");
+    }
+    const txt = await secondStartRes.text();
+    if (!/insufficient|stock/i.test(txt)) {
+      fail(`second checkout should fail with stock message; got ${txt.slice(0, 200)}`);
+    }
+  },
+);
 
 // ── read order status edge cases ─────────────────────────────────────
 

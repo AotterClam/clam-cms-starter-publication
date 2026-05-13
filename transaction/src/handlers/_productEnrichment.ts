@@ -12,8 +12,6 @@
  * join, but the caller-facing API stays the same.
  */
 
-import type { CmsRuntime } from "@aotterclam/clam-cms-runtime";
-
 export interface ProductRow {
   readonly slug: string;
   readonly title: string;
@@ -34,19 +32,11 @@ export interface ProductCatalog {
  * a slug map (for per-line cart enrichment).
  */
 export async function loadProductCatalog(
-  runtime: CmsRuntime,
+  db: D1Database,
 ): Promise<ProductCatalog> {
   const [productEntries, translationEntries] = await Promise.all([
-    runtime.listEntries.execute({
-      collection: "products",
-      status: "published",
-      limit: 1000,
-    }),
-    runtime.listEntries.execute({
-      collection: "product-translations",
-      status: "published",
-      limit: 5000,
-    }),
+    listPublishedEntries(db, "products", 1000),
+    listPublishedEntries(db, "product-translations", 5000),
   ]);
   const rows: ProductRow[] = [];
   for (const entry of productEntries) {
@@ -75,4 +65,20 @@ export async function loadProductCatalog(
   }
   const bySlug = new Map(rows.map((r) => [r.slug, r]));
   return { rows, bySlug };
+}
+
+async function listPublishedEntries(
+  db: D1Database,
+  collection: string,
+  limit: number,
+): Promise<ReadonlyArray<{ data: unknown }>> {
+  const { results } = await db.prepare(
+    `SELECT data FROM entries
+      WHERE collection = ? AND status = ?
+      ORDER BY updated_at DESC
+      LIMIT ?`,
+  )
+    .bind(collection, "published", limit)
+    .all<{ data: string }>();
+  return (results ?? []).map((row) => ({ data: JSON.parse(row.data) }));
 }

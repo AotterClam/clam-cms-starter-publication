@@ -96,8 +96,14 @@ export class MerchantFormTemplate implements PaymentProvider {
     // Then map provider status codes to CallbackEvent.status:
     //   - ECPay RtnCode === "1" → succeeded
     //   - PayUni Status === "S" → succeeded
-    //   - Failure codes → "failed"
-    //   - Timeout / cancel codes → "expired"
+    //   - Recoverable attempt failures → "failed". The starter keeps
+    //     tracked-inventory reservations until success or TTL.
+    //   - Timeout / cancel / checkout-expired codes → "expired"
+    //
+    // Tracked-inventory warning: do NOT enable delayed-settlement
+    // methods (ECPay ATM, PayUni ATM, bank transfer, etc.) unless the
+    // products are `untracked`. Their success callback can arrive after
+    // the 10-minute reservation TTL and oversell stock.
     //
     // Extract orderId from the merchant-supplied field (usually
     // OrderID, CustomField1, MerTradeNo — whatever you set at

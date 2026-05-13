@@ -96,8 +96,6 @@ metadata:
 spec:
   from: product-translations
   fields: [slug, locale, title, shortDescription]
-  filter:
-    eq: { field: status, value: published }
   orderBy:
     - { field: updatedAt, direction: desc }
   limit: 100

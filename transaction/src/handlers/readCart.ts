@@ -22,6 +22,7 @@ interface CartState {
 
 export interface ReadCartEnv {
   readonly KV: KVNamespace;
+  readonly DB: D1Database;
 }
 
 export interface ReadCartInput {
@@ -43,7 +44,7 @@ export interface ReadCartOutput {
 }
 
 export function buildReadCart(env: ReadCartEnv): AnyHandler {
-  return defineHandler<ReadCartInput, ReadCartOutput>(async (input, ctx) => {
+  return defineHandler<ReadCartInput, ReadCartOutput>(async (input, _ctx) => {
     if (!input.cartId) {
       throw new Error("readCart: missing cartId");
     }
@@ -56,7 +57,7 @@ export function buildReadCart(env: ReadCartEnv): AnyHandler {
         subtotalMinor: 0,
       } satisfies ReadCartOutput;
     }
-    const catalog = await loadProductCatalog(ctx.runtime);
+    const catalog = await loadProductCatalog(env.DB);
     const items: ReadCartOutput["items"][number][] = [];
     let subtotalMinor = 0;
     let currency: string | undefined;

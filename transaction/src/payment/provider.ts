@@ -50,6 +50,22 @@ export interface CallbackEvent {
   readonly eventId: string;
   /** Our order ID (provider echoes it via merchant metadata field). */
   readonly orderId: string;
+  /**
+   * Normalized payment status.
+   *
+   * IMPORTANT for tracked inventory:
+   * - `succeeded` commits the reservation and writes the order.
+   * - `failed` means the current payment attempt failed but the buyer
+   *   may still retry on the same provider payment object / orderId;
+   *   the reservation is kept until success or its 10-minute TTL.
+   * - `expired` means the checkout/payment session is terminally
+   *   abandoned or cancelled; the reservation is released immediately.
+   *
+   * Do not map delayed-settlement rails (ATM, ACH, SEPA, bank transfer)
+   * to this flow with tracked inventory. Their success callback can
+   * arrive after the reservation TTL. Disable those methods or mark
+   * the affected products `untracked`.
+   */
   readonly status: "succeeded" | "failed" | "expired";
   readonly amount: { readonly minor: number; readonly currency: string };
   /**

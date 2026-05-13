@@ -4,9 +4,8 @@
  * the UI can detect when the async callback consumer has placed
  * the order. See manifests/checkout.yaml for the output contract.
  *
- * Uses `runtime.getEntry` against the deterministic
- * `entry_<orderId>` id — direct lookup, no 1000-row scan + no
- * silent miss past the limit cap.
+ * Uses D1 directly against the deterministic `entry_<orderId>` id —
+ * direct lookup, no 1000-row scan + no silent miss past the limit cap.
  */
 
 import type { AnyHandler } from "@aotterclam/clam-cms-runtime";
@@ -15,6 +14,10 @@ import { orderEntryId, type OrderLineItem, type OrderRowData } from "./orderCons
 
 export interface ReadOrderStatusInput {
   readonly orderId: string;
+}
+
+export interface ReadOrderStatusEnv {
+  readonly DB: D1Database;
 }
 
 export interface ReadOrderStatusOutput {
@@ -29,52 +32,33 @@ export interface ReadOrderStatusOutput {
   readonly items?: ReadonlyArray<OrderLineItem>;
 }
 
-export function buildReadOrderStatus(): AnyHandler {
-  return defineHandler<ReadOrderStatusInput, ReadOrderStatusOutput>(async (input, ctx) => {
+export function buildReadOrderStatus(env: ReadOrderStatusEnv): AnyHandler {
+  return defineHandler<ReadOrderStatusInput, ReadOrderStatusOutput>(async (input, _ctx) => {
     if (!input.orderId) {
       throw new Error("readOrderStatus: missing orderId");
     }
-    try {
-      const row = await ctx.runtime.getEntry.execute({
-        id: orderEntryId(input.orderId),
-        collection: "orders",
-      });
-      const d = row.data as OrderRowData;
+    const row = await env.DB.prepare(
+      `SELECT data FROM entries WHERE id = ? AND collection = ? LIMIT 1`,
+    )
+      .bind(orderEntryId(input.orderId), "orders")
+      .first<{ data: string } | null>();
+    if (!row) {
       return {
-        orderId: d.orderNumber ?? input.orderId,
-        exists: true,
-        orderStatus: d.orderStatus ?? "placed",
-        currency: d.currency,
-        totalMinor: d.totalMinor,
-        customerEmail: d.customerEmail,
-        paymentProvider: d.paymentProvider,
-        paymentIntentId: d.paymentIntentId,
-        items: d.items,
+        orderId: input.orderId,
+        exists: false,
       } satisfies ReadOrderStatusOutput;
-    } catch (err) {
-      // getEntry throws DiagnosticError on not-found. For our caller
-      // not-found just means "the async callback hasn't placed the
-      // order yet" — exists: false is the right shape.
-      if (isNotFoundError(err)) {
-        return {
-          orderId: input.orderId,
-          exists: false,
-        } satisfies ReadOrderStatusOutput;
-      }
-      throw err;
     }
+    const d = JSON.parse(row.data) as OrderRowData;
+    return {
+      orderId: d.orderNumber ?? input.orderId,
+      exists: true,
+      orderStatus: d.orderStatus ?? "placed",
+      currency: d.currency,
+      totalMinor: d.totalMinor,
+      customerEmail: d.customerEmail,
+      paymentProvider: d.paymentProvider,
+      paymentIntentId: d.paymentIntentId,
+      items: d.items,
+    } satisfies ReadOrderStatusOutput;
   });
-}
-
-function isNotFoundError(err: unknown): boolean {
-  if (err instanceof Error) {
-    // DiagnosticError carries a `diagnostic` field; not-found
-    // diagnostics surface with `code: "ENTRY_NOT_FOUND"`. Defensive
-    // string-match keeps this independent of the import surface.
-    const message = err.message ?? "";
-    if (/not.?found|ENTRY_NOT_FOUND/i.test(message)) return true;
-    const diag = (err as { diagnostic?: { code?: string } }).diagnostic;
-    if (diag && diag.code === "ENTRY_NOT_FOUND") return true;
-  }
-  return false;
 }

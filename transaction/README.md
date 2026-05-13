@@ -4,6 +4,14 @@
 shop (≤100 orders/day): products + cart + payment + orders. Backed
 by Cloudflare Workers + D1 + KV + DurableObjects + Queues.
 
+> **Tracked inventory payment rule:** do **not** enable delayed-settlement
+> methods such as ATM, ACH, SEPA, Bacs, bank transfer, or delayed BLIK
+> while products use `inventoryMode: tracked`. Their success callback can
+> arrive after the 10-minute reservation TTL, so the order can be paid
+> without stock being decremented. Disable those methods at the payment
+> provider dashboard, or set the affected products to `inventoryMode:
+> untracked`.
+
 **Provider-agnostic by design.** The starter ships a `PaymentProvider`
 interface and **no implementation**; Mantle (the install Skill) wires
 the real provider (Stripe / Paddle / ECPay / PayUni / custom) in the
@@ -83,5 +91,6 @@ provider interview + scaffolding procedure.
 ## See also
 
 - [`SKILL.md`](SKILL.md) — Mantle's install-time interview + provider wiring
+- [`docs/payment-safety.md`](docs/payment-safety.md) — tracked inventory and delayed-settlement constraints
 - [`src/payment/providers/README.md`](src/payment/providers/README.md) — provider templates explained
 - [`skills/extend`](https://raw.githubusercontent.com/AotterClam/clam-cms/main/skills/extend/SKILL.md) — adding Schemas / Views / Procedures / Triggers

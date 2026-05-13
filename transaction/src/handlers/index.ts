@@ -22,7 +22,7 @@ export function buildHandlers(env: HandlerEnv): Readonly<Record<string, AnyHandl
     "checkoutStart": buildCheckoutStart(env),
     "checkoutConfirm": buildCheckoutConfirm(env),
     "checkoutReturn": buildCheckoutReturn(env),
-    "readOrderStatus": buildReadOrderStatus(),
+    "readOrderStatus": buildReadOrderStatus(env),
     "enqueueOrderConfirmed": buildEnqueueOrderConfirmed(env),
     "snapshotInventory": buildSnapshotInventory(env),
     "restockProduct": buildRestockProduct(env),

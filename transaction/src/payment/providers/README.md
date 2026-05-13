@@ -6,6 +6,13 @@ with a payment provider wired. Mantle scaffolds the real provider
 file here during install, based on the user's answer to "which
 payment provider?"
 
+> **Tracked inventory payment rule:** do **not** enable delayed-settlement
+> rails such as ATM, ACH, SEPA, Bacs, bank transfer, or delayed BLIK
+> while products use `inventoryMode: tracked`. Those providers can send
+> the success callback hours or days after checkout, after the starter's
+> 10-minute reservation TTL. Disable those methods, or mark those products
+> `untracked`.
+
 ## Two pattern templates ship in `_templates/`
 
 The transaction starter recognizes two common payment-integration
@@ -31,6 +38,9 @@ adapts to the specific provider's API.
 3. Copies the template to `providers/<provider>.ts`.
 4. Reads the provider's docs and fills in the TODOs (API calls,
    signature/encryption scheme, status-code mapping).
+   Map recoverable attempt failures (declined card, requires new payment
+   method) to `failed`; map terminal checkout cancellation/expiry to
+   `expired`. Only `expired` releases tracked inventory immediately.
 5. Updates `../index.ts` to import + instantiate the new class.
 6. Declares the provider's secrets in `wrangler.toml` so provision
    can pipe them in via `wrangler secret put`.
