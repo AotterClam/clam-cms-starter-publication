@@ -24,6 +24,7 @@ const CART_BOOTSTRAP_JS = `
   const totalCell = document.getElementById("cart-total");
   const emptyMsg = document.getElementById("cart-empty");
   const summary = document.getElementById("cart-summary");
+  const loading = document.getElementById("summary-loading");
   const cartId = window.__cartId;
 
   async function render() {
@@ -35,16 +36,33 @@ const CART_BOOTSTRAP_JS = `
       }
       const data = await res.json();
       if (!data.items || data.items.length === 0) { showEmpty(); return; }
+      loading.style.display = "none";
       summary.style.display = "block";
       emptyMsg.style.display = "none";
       tbody.innerHTML = "";
       for (const item of data.items) {
         const tr = document.createElement("tr");
+        tr.dataset.slug = item.productSlug;
         tr.innerHTML =
-          "<td>" + esc(item.productSlug) + "</td>" +
-          "<td>" + item.qty + "</td>";
+          "<td><a href=\\"/product/" + encodeURIComponent(item.productSlug) + "\\">" + esc(item.title || item.productSlug) + "</a></td>" +
+          "<td>" + ((item.priceMinor / 100).toFixed(2)) + " " + (data.currency || "") + "</td>" +
+          "<td><input data-qty type=\\"number\\" min=\\"0\\" max=\\"99\\" value=\\"" + item.qty + "\\" /></td>" +
+          "<td>" + ((item.lineTotalMinor / 100).toFixed(2)) + " " + (data.currency || "") + "</td>" +
+          "<td><button type=\\"button\\" data-remove>Remove</button></td>";
         tbody.appendChild(tr);
       }
+      tbody.querySelectorAll("[data-qty]").forEach(function(input) {
+        input.addEventListener("change", function() {
+          const row = input.closest("tr");
+          setQty(row.dataset.slug, Number(input.value || 0));
+        });
+      });
+      tbody.querySelectorAll("[data-remove]").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          const row = btn.closest("tr");
+          setQty(row.dataset.slug, 0);
+        });
+      });
       const total = (data.subtotalMinor / 100).toFixed(2) + " " + (data.currency || "");
       totalCell.textContent = total;
       document.getElementById("checkout-link").href =
@@ -55,8 +73,23 @@ const CART_BOOTSTRAP_JS = `
     }
   }
   function showEmpty() {
+    loading.style.display = "none";
     summary.style.display = "none";
     emptyMsg.style.display = "block";
+  }
+  async function setQty(productSlug, qty) {
+    const res = await fetch("/api/cart/set-qty", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ cartId, productSlug, qty })
+    });
+    if (!res.ok) {
+      loading.style.display = "none";
+      emptyMsg.textContent = "Could not update cart: " + (await res.text()).slice(0, 200);
+      emptyMsg.style.display = "block";
+      return;
+    }
+    render();
   }
   render();
 })();
@@ -66,7 +99,8 @@ export function renderCart(): string {
   const tree = (
     <Layout title="Cart">
       <h1>Your Cart</h1>
-      <div id="summary-loading">Loading…</div>
+      <p class="muted">Review quantities before starting checkout.</p>
+      <div id="summary-loading" class="panel">Loading…</div>
       <div id="cart-empty" class="empty" style="display: none">
         Your cart is empty. <a href="/">Browse the shop →</a>
       </div>
@@ -75,7 +109,10 @@ export function renderCart(): string {
           <thead>
             <tr>
               <th>Product</th>
+              <th>Unit</th>
               <th>Qty</th>
+              <th>Line total</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="cart-rows"></tbody>

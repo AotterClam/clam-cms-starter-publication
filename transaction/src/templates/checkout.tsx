@@ -103,15 +103,25 @@ export function renderCheckout(): string {
   const tree = (
     <Layout title="Checkout">
       <h1>Checkout</h1>
-      <div id="summary">Loading cart…</div>
-      <form id="checkout-form" class="checkout">
-        <label for="email">Email (for the order receipt)</label>
-        <input id="email" name="email" type="email" required />
-        <button id="submit-btn" class="primary" type="submit">
-          Place Order →
-        </button>
-        <div id="submit-result"></div>
-      </form>
+      <p class="muted">
+        Anonymous checkout: collect an email for the receipt, then
+        hand off to the configured payment provider.
+      </p>
+      <div class="checkout-layout">
+        <form id="checkout-form" class="checkout">
+          <h2>Contact</h2>
+          <label for="email">Email for the order receipt</label>
+          <input id="email" name="email" type="email" required />
+          <button id="submit-btn" class="primary" type="submit">
+            Place Order →
+          </button>
+          <div id="submit-result"></div>
+        </form>
+        <div class="panel">
+          <h2>Order summary</h2>
+          <div id="summary">Loading cart…</div>
+        </div>
+      </div>
       <script>{raw(CHECKOUT_JS)}</script>
     </Layout>
   );

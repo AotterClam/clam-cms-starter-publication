@@ -158,13 +158,13 @@ check("idempotency: same callback event again → no second order row", async ()
 // ── PR 3 — staff-gated + scheduled handler ───────────────────────────
 
 check(
-  "restockProduct: POST /staff/api/restock unauthenticated → rejected",
+  "restockProduct: POST /api/staff/restock unauthenticated → rejected",
   async () => {
     // Auth-denied shape varies by mount layer in v0.1 — Hono may
     // return 401/403, the procedure dispatcher may return 200 with
     // `{ ok: false, diagnostic }`. Either is fine; the failure mode
     // is a 200 with the success shape (`snapshotQueued: true`).
-    const res = await fetch(`${BASE_URL}/staff/api/restock`, {
+    const res = await fetch(`${BASE_URL}/api/staff/restock`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ productSlug: "tracked-out-of-stock", addQty: 10 }),
@@ -269,6 +269,57 @@ check("addToCart: same product twice coalesces (1 + 2 = 3, not 2 lines)", async 
   }
   if (body.subtotalMinor !== 3000) {
     fail(`expected subtotalMinor=3000, got ${body.subtotalMinor}`);
+  }
+});
+
+check("setCartQty: POST /api/cart/set-qty updates and removes a line", async () => {
+  await fetch(`${BASE_URL}/api/cart/add`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      cartId: "set-qty-cart",
+      productSlug: "smoke-product",
+      qty: 2,
+    }),
+  });
+  const updateRes = await fetch(`${BASE_URL}/api/cart/set-qty`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      cartId: "set-qty-cart",
+      productSlug: "smoke-product",
+      qty: 4,
+    }),
+  });
+  if (updateRes.status !== 200) {
+    fail(`/api/cart/set-qty update → ${updateRes.status}: ${(await updateRes.text()).slice(0, 200)}`);
+  }
+  const updated = await jsonBody<{
+    items: Array<{ productSlug: string; qty: number }>;
+    subtotalMinor: number;
+  }>(updateRes);
+  const line = updated.items.find((i) => i.productSlug === "smoke-product");
+  if (!line || line.qty !== 4 || updated.subtotalMinor !== 4000) {
+    fail(`expected qty=4 subtotal=4000; got ${JSON.stringify(updated)}`);
+  }
+
+  const removeRes = await fetch(`${BASE_URL}/api/cart/set-qty`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      cartId: "set-qty-cart",
+      productSlug: "smoke-product",
+      qty: 0,
+    }),
+  });
+  if (removeRes.status !== 200) {
+    fail(`/api/cart/set-qty remove → ${removeRes.status}: ${(await removeRes.text()).slice(0, 200)}`);
+  }
+  const removed = await jsonBody<{ items: Array<unknown>; subtotalMinor: number }>(
+    removeRes,
+  );
+  if (removed.items.length !== 0 || removed.subtotalMinor !== 0) {
+    fail(`expected empty cart after remove; got ${JSON.stringify(removed)}`);
   }
 });
 

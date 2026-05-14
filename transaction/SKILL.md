@@ -159,8 +159,8 @@ What ships:
 
 - **Schemas**: `products`, `product-translations`, `orders`, `order_items`, `inventory_snapshots`.
 - **Views**: `products-public`, `product-by-slug`, `orders-recent` (staff), `order-by-number`, `inventory-low` (staff).
-- **Procedures**: `add-to-cart`, `checkout-start`, `checkout-confirm`, `checkout-return`, `read-order-status`, `snapshot-inventory`, `restock-product` (staff-only via `requires.auth.all: [{ ctx.staff: [owner] }]`), `enqueue-order-confirmed`.
-- **Triggers**: 3 HTTP routes (`POST /api/cart/add`, `POST /api/checkout/start`, `POST /api/payment/callback`, `POST /staff/api/restock`) + `orders.after_create` lifecycle.
+- **Procedures**: `add-to-cart`, `set-cart-qty`, `checkout-start`, `checkout-confirm`, `checkout-return`, `read-order-status`, `snapshot-inventory`, `restock-product` (staff-only via `requires.auth.all: [{ ctx.staff: [owner] }]`), `enqueue-order-confirmed`.
+- **Triggers**: 5 HTTP routes (`POST /api/cart/add`, `POST /api/cart/set-qty`, `POST /api/checkout/start`, `POST /api/payment/callback`, `POST /api/staff/restock`) + `orders.after_create` lifecycle.
 - **DurableObject**: `InventoryActor` (1 per tenant).
 - **Queues**: `payment_callback_queue` + `order_work_queue` (both `max_concurrency: 1`).
 - **Cron**: every 5min `inventory.reconcile.tick` (sweeper + snapshot).

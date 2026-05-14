@@ -1,5 +1,5 @@
 /** @jsxImportSource hono/jsx */
-import { Layout, renderHtml } from "./layout.js";
+import { Layout, formatPrice, renderHtml } from "./layout.js";
 
 /**
  * GET / — product list. Reads from the `products-public` View (same
@@ -23,9 +23,38 @@ export interface ProductListContext {
 }
 
 export function renderProductList(ctx: ProductListContext): string {
+  const featured = ctx.products[0];
   const tree = (
     <Layout title="Shop">
-      <h1>Shop</h1>
+      <section class="hero">
+        <div>
+          <p class="muted">Small-catalog transaction starter</p>
+          <h1>Products, cart, checkout, and order confirmation.</h1>
+          <p>
+            This neutral storefront is the default transaction backbone.
+            Add products in the admin, wire a payment provider during
+            install, then replace the copy and theme with your brand.
+          </p>
+          <a href="#products" class="btn-primary">Browse products</a>
+        </div>
+        <div class="panel">
+          <h2>Transaction flow</h2>
+          <p class="muted">
+            Product pages call cart Procedures. Checkout reserves
+            tracked inventory, starts the provider flow, then the order
+            page polls until the callback consumer commits the order.
+          </p>
+          {featured ? (
+            <p>
+              Featured:{" "}
+              <a href={`/product/${encodeURIComponent(featured.slug)}`}>
+                {featured.title}
+              </a>
+            </p>
+          ) : null}
+        </div>
+      </section>
+      <h2 id="products">Products</h2>
       {ctx.products.length === 0 ? (
         <div class="empty">
           No products yet. Sign in as staff to add some.
@@ -48,8 +77,4 @@ export function renderProductList(ctx: ProductListContext): string {
     </Layout>
   );
   return renderHtml(tree);
-}
-
-function formatPrice(minor: number, currency: string): string {
-  return `${(minor / 100).toFixed(2)} ${currency}`;
 }

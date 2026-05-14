@@ -8,6 +8,7 @@ import { buildReadOrderStatus } from "./readOrderStatus.js";
 import { buildEnqueueOrderConfirmed } from "./enqueueOrderConfirmed.js";
 import { buildSnapshotInventory } from "./snapshotInventory.js";
 import { buildRestockProduct } from "./restockProduct.js";
+import { buildSetCartQty } from "./setCartQty.js";
 
 export type HandlerEnv = Env;
 
@@ -23,6 +24,7 @@ export function buildHandlers(env: HandlerEnv): Readonly<Record<string, AnyHandl
     "checkoutConfirm": buildCheckoutConfirm(env),
     "checkoutReturn": buildCheckoutReturn(env),
     "readOrderStatus": buildReadOrderStatus(),
+    "setCartQty": buildSetCartQty(env),
     "enqueueOrderConfirmed": buildEnqueueOrderConfirmed(env),
     "snapshotInventory": buildSnapshotInventory(env),
     "restockProduct": buildRestockProduct(env),

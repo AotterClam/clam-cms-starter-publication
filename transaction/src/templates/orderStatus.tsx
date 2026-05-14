@@ -111,7 +111,7 @@ export function renderOrderStatus(ctx: OrderStatusContext): string {
   const tree = (
     <Layout title="Order">
       <h1>Order Confirmation</h1>
-      <div id="order-content">
+      <div id="order-content" class="panel">
         <p class="muted">Checking your order status…</p>
       </div>
       <script>{raw(`window.__orderId = ${orderIdJson};`)}</script>

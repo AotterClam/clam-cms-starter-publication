@@ -31,6 +31,29 @@ spec:
 apiVersion: cms.clam.ai/v1
 kind: Procedure
 metadata:
+  name: set-cart-qty
+spec:
+  input:
+    type: object
+    required: [cartId, productSlug, qty]
+    properties:
+      cartId: { type: string }
+      productSlug: { type: string, pattern: "^[a-z0-9-]+$" }
+      qty:
+        type: integer
+        minimum: 0
+        maximum: 99
+        description: Set to 0 to remove the line.
+  output:
+    type: object
+    description: Updated cart shape with enriched line totals.
+  handler:
+    kind: ref
+    ref: setCartQty
+---
+apiVersion: cms.clam.ai/v1
+kind: Procedure
+metadata:
   name: checkout-start
 spec:
   input:
@@ -157,6 +180,18 @@ spec:
     path: /api/cart/add
   target:
     procedure: add-to-cart
+---
+apiVersion: cms.clam.ai/v1
+kind: Trigger
+metadata:
+  name: set-cart-qty-http
+spec:
+  source:
+    kind: http
+    method: POST
+    path: /api/cart/set-qty
+  target:
+    procedure: set-cart-qty
 ---
 apiVersion: cms.clam.ai/v1
 kind: Trigger

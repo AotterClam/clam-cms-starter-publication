@@ -16,7 +16,13 @@ import { loadProductCatalog } from "./handlers/_productEnrichment.js";
 import { buildReadOrderStatus } from "./handlers/readOrderStatus.js";
 import { buildReadCart } from "./handlers/readCart.js";
 import { buildCheckoutReturn } from "./handlers/checkoutReturn.js";
+import { buildCheckoutConfirm } from "./handlers/checkoutConfirm.js";
+import { buildAddToCart } from "./handlers/addToCart.js";
+import { buildCheckoutStart } from "./handlers/checkoutStart.js";
+import { buildSetCartQty } from "./handlers/setCartQty.js";
 import { restockProductCore } from "./handlers/restockProduct.js";
+import { readOrderCart } from "./handlers/orderCart.js";
+import type { CallbackEvent } from "./payment/provider.js";
 import { renderProductList } from "./templates/productList.js";
 import { renderProductDetail } from "./templates/productDetail.js";
 import { renderCart } from "./templates/cart.js";
@@ -43,6 +49,35 @@ export { InventoryActor } from "./durableObjects/InventoryActor.js";
  * in `src/handlers/orderConsumer.ts`.
  */
 let appCache: { app: Hono; cms: CmsRuntimeRef } | null = null;
+
+/**
+ * Dev-only fallback for provider return flows where the async webhook
+ * cannot reach localhost. The callback still goes through the same
+ * queue consumer as production, using the cart stash written by
+ * checkoutStart.
+ */
+async function tryEnqueueLocalCallback(env: Env, orderId: string): Promise<void> {
+  try {
+    const cart = await readOrderCart(env.KV, orderId);
+    if (!cart) return;
+    const event: CallbackEvent = {
+      eventId: `dev-return-${orderId}`,
+      orderId,
+      status: "succeeded",
+      amount: { minor: cart.subtotalMinor, currency: cart.currency },
+      paymentIntentId: `dev-return-${orderId}`,
+      customerEmail: cart.customerEmail,
+      provider: "dev-shim",
+    };
+    await env.PAYMENT_CALLBACK_QUEUE.send(event);
+  } catch (err) {
+    console.warn(
+      `[dev-shim] failed to enqueue local callback for ${orderId}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+}
 
 const AUTH_NOT_CONFIGURED = {
   error: "auth_not_configured",
@@ -82,8 +117,119 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   // scheme and is cross-origin by design. See src/csrf.ts for the
   // gating rationale.
   app.use("/api/cart/add", csrfGuard);
+  app.use("/api/cart/set-qty", csrfGuard);
   app.use("/api/checkout/start", csrfGuard);
-  app.use("/staff/api/restock", csrfGuard);
+  app.use("/api/staff/restock", csrfGuard);
+
+  const checkoutConfirm = buildCheckoutConfirm(env);
+  app.post("/api/payment/callback", async (c) => {
+    try {
+      const runtime = await cms.get();
+      await invokeHandler(
+        checkoutConfirm,
+        {
+          requestUrl: c.req.url,
+          requestBody: await c.req.text(),
+          requestHeaders: Object.fromEntries(c.req.raw.headers.entries()),
+          requestMethod: c.req.method,
+        },
+        { runtime },
+      );
+      return c.text("1|OK");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.text(`payment callback error: ${msg}`, 400);
+    }
+  });
+
+  // Runtime-aware bridges for browser POSTs. The manifest-declared
+  // Trigger path remains available through mountServerEndpoints, but
+  // these routes take priority so handlers receive ctx.runtime.
+  const addToCart = buildAddToCart(env);
+  const setCartQty = buildSetCartQty(env);
+  const checkoutStart = buildCheckoutStart(env);
+
+  app.post("/api/cart/add", async (c) => {
+    try {
+      const body = (await c.req.json()) as {
+        cartId?: string;
+        productSlug?: string;
+        qty?: number;
+      };
+      if (!body.cartId || !body.productSlug || !body.qty) {
+        return c.json({ error: "missing cartId / productSlug / qty" }, 400);
+      }
+      const runtime = await cms.get();
+      const result = await invokeHandler<
+        { cartId: string; productSlug: string; qty: number },
+        unknown
+      >(
+        addToCart,
+        { cartId: body.cartId, productSlug: body.productSlug, qty: body.qty },
+        { runtime },
+      );
+      return c.json({ ok: true, ...(result as object) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ error: msg }, 400);
+    }
+  });
+
+  app.post("/api/checkout/start", async (c) => {
+    try {
+      const body = (await c.req.json()) as {
+        cartId?: string;
+        customerEmail?: string;
+        turnstileToken?: string;
+      };
+      if (!body.cartId || !body.customerEmail) {
+        return c.json({ error: "missing cartId / customerEmail" }, 400);
+      }
+      const runtime = await cms.get();
+      const result = await invokeHandler<
+        { cartId: string; customerEmail: string; turnstileToken?: string },
+        unknown
+      >(
+        checkoutStart,
+        {
+          cartId: body.cartId,
+          customerEmail: body.customerEmail,
+          turnstileToken: body.turnstileToken,
+        },
+        { runtime },
+      );
+      return c.json({ ok: true, ...(result as object) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ error: msg }, 400);
+    }
+  });
+
+  app.post("/api/cart/set-qty", async (c) => {
+    try {
+      const body = (await c.req.json()) as {
+        cartId?: string;
+        productSlug?: string;
+        qty?: number;
+      };
+      if (!body.cartId || !body.productSlug || typeof body.qty !== "number") {
+        return c.json({ error: "missing cartId / productSlug / qty" }, 400);
+      }
+      const runtime = await cms.get();
+      const result = await invokeHandler<
+        { cartId: string; productSlug: string; qty: number },
+        unknown
+      >(
+        setCartQty,
+        { cartId: body.cartId, productSlug: body.productSlug, qty: body.qty },
+        { runtime },
+      );
+      return c.json({ ok: true, ...(result as object) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ error: msg }, 400);
+    }
+  });
 
   mountServerEndpoints(app, cms);
   mountMcp(app, cms, {
@@ -132,6 +278,7 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   // still redirect — the order page polls /api/order/status and
   // surfaces whatever state actually persisted.
   app.get("/api/payment/return", async (c) => {
+    const queryOrderId = c.req.query("orderId") ?? "";
     try {
       const runtime = await cms.get();
       const result = (await invokeHandler<{ requestUrl: string }, unknown>(
@@ -139,18 +286,46 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
         { requestUrl: c.req.url },
         { runtime },
       )) as { orderId?: string };
-      const orderId = result.orderId ?? c.req.query("orderId") ?? "";
+      const orderId = result.orderId ?? queryOrderId;
       if (!orderId) {
         return c.text("missing orderId after return", 400);
+      }
+      if (env.CLAM_LOCAL_DEV === "1") {
+        await tryEnqueueLocalCallback(env, orderId);
       }
       return c.redirect(`/order/${encodeURIComponent(orderId)}`, 302);
     } catch (err) {
       // Failed signature verification or transient error. Still try
       // to land the customer on a useful page rather than a JSON 500.
-      const orderId = c.req.query("orderId") ?? "";
-      if (orderId) {
-        return c.redirect(`/order/${encodeURIComponent(orderId)}`, 302);
+      if (queryOrderId) {
+        if (env.CLAM_LOCAL_DEV === "1") {
+          await tryEnqueueLocalCallback(env, queryOrderId);
+        }
+        return c.redirect(`/order/${encodeURIComponent(queryOrderId)}`, 302);
       }
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.text(`payment return error: ${msg}`, 500);
+    }
+  });
+
+  app.post("/api/payment/return", async (c) => {
+    try {
+      const runtime = await cms.get();
+      const result = (await invokeHandler<
+        { requestUrl: string; requestBody: string },
+        unknown
+      >(
+        checkoutReturn,
+        { requestUrl: c.req.url, requestBody: await c.req.text() },
+        { runtime },
+      )) as { orderId?: string };
+      const orderId = result.orderId ?? "";
+      if (!orderId) return c.text("missing orderId after return", 400);
+      if (env.CLAM_LOCAL_DEV === "1") {
+        await tryEnqueueLocalCallback(env, orderId);
+      }
+      return c.redirect(`/order/${encodeURIComponent(orderId)}`, 302);
+    } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return c.text(`payment return error: ${msg}`, 500);
     }
@@ -214,7 +389,7 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   );
 
   // Test-only bypass: seed InventoryActor stock without going through
-  // the staff-gated `/staff/api/restock` (which needs a real session
+  // the staff-gated `/api/staff/restock` (which needs a real session
   // cookie). Gated on the SAME flag that gates FakeProvider, so this
   // is impossible to hit in production unless an operator explicitly
   // sets FAKE_PAYMENT_PROVIDER=1 (which would also disable real

@@ -1,6 +1,6 @@
 /** @jsxImportSource hono/jsx */
 import { raw } from "hono/html";
-import { Layout, renderHtml } from "./layout.js";
+import { Layout, formatPrice, renderHtml } from "./layout.js";
 
 /**
  * GET /product/:slug — single product page with Add-to-Cart.
@@ -73,29 +73,34 @@ export function renderProductDetail(ctx: ProductDetailContext): string {
       <p>
         <a href="/">← Back to shop</a>
       </p>
-      <h1>{p.title}</h1>
-      <p class="price-tag">{formatPrice(p.priceMinor, p.currency)}</p>
-      {p.description ? <p>{p.description}</p> : null}
-      <div>
-        <label for="qty">Quantity</label>
-        <input id="qty" type="number" min="1" max="10" value="1" style="width: 5rem" />
-        <br />
-        <button
-          id="add-to-cart"
-          class="primary"
-          data-slug={p.slug}
-          type="button"
-        >
-          Add to Cart
-        </button>
-        <div id="add-result"></div>
+      <div class="product-layout">
+        <div class="panel">
+          <div class="muted">Product</div>
+          <h1>{p.title}</h1>
+          <p class="price-tag">{formatPrice(p.priceMinor, p.currency)}</p>
+          {p.description ? <p>{p.description}</p> : null}
+          <p class="muted">
+            Stock is checked at checkout. For tracked products,
+            inventory is reserved atomically before payment starts.
+          </p>
+        </div>
+        <div class="panel">
+          <h2>Add to cart</h2>
+          <label for="qty">Quantity</label>
+          <input id="qty" type="number" min="1" max="10" value="1" />
+          <button
+            id="add-to-cart"
+            class="primary"
+            data-slug={p.slug}
+            type="button"
+          >
+            Add to Cart
+          </button>
+          <div id="add-result"></div>
+        </div>
       </div>
       <script>{raw(ADD_TO_CART_JS)}</script>
     </Layout>
   );
   return renderHtml(tree);
-}
-
-function formatPrice(minor: number, currency: string): string {
-  return `${(minor / 100).toFixed(2)} ${currency}`;
 }
