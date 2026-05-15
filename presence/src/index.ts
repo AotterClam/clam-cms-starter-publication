@@ -31,8 +31,17 @@ let providerCache: CachedProvider | null = null;
 const AUTH_NOT_CONFIGURED = {
   error: "auth_not_configured",
   message:
-    "BETTER_AUTH_SECRET is required. Run `wrangler secret put BETTER_AUTH_SECRET` and redeploy.",
+    "Required secrets missing: BETTER_AUTH_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET. Run `wrangler secret put …` for each (or adapt buildAuthFromEnv to your chosen method) and redeploy.",
 } as const;
+
+// Mirrors the methods[] construction in buildAuthFromEnv — createAuth
+// throws if methods[] is empty, so a worker with the secret but no
+// GitHub creds would crash on first request instead of returning 503.
+function authIsConfigured(env: Env): boolean {
+  return Boolean(
+    env.BETTER_AUTH_SECRET && env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
+  );
+}
 
 function buildAuthFromEnv(env: Env): Auth {
   const baseURL = env.PUBLIC_ORIGIN ?? "http://localhost:8787";
@@ -193,7 +202,7 @@ async function renderNotFound(ctx: PublicRouteContext): Promise<Response> {
 // lib's injection logic still runs inside `getProvider(env).fetch`.
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (!env.BETTER_AUTH_SECRET) {
+    if (!authIsConfigured(env)) {
       return Response.json(AUTH_NOT_CONFIGURED, { status: 503 });
     }
     return getProvider(env).fetch(req, env, ctx);

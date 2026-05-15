@@ -14,6 +14,8 @@ id = "kv-clam-blank-local"
 
 # OAuth provider storage — clients / grants / tokens issued by
 # @cloudflare/workers-oauth-provider. Separate namespace from KV.
+# Binding name must be exactly `OAUTH_KV` — the lib reads
+# `env.OAUTH_KV` directly; not configurable.
 [[kv_namespaces]]
 binding = "OAUTH_KV"
 id = "oauth-kv-clam-blank-local"

@@ -32,7 +32,7 @@ export { InventoryActor } from "./durableObjects/InventoryActor.js";
  * Transaction starter worker entrypoint.
  *
  * Mounts: Better Auth `/api/auth/*`, manifest-declared HTTP Triggers
- * + view REST (via `mountServerEndpoints`), dual MCP (`/staff/mcp` +
+ * + view REST (via `mountServerEndpoints`), dual MCP (`/mcp/staff` +
  * `/mcp`), plus two custom GET routes for the customer's payment-
  * return + order-status poll (v0.1 Triggers can't express GET; the
  * routes call into the `checkoutReturn` / `readOrderStatus`
@@ -50,8 +50,17 @@ let providerCache: CachedProvider | null = null;
 const AUTH_NOT_CONFIGURED = {
   error: "auth_not_configured",
   message:
-    "BETTER_AUTH_SECRET is required. Run `wrangler secret put BETTER_AUTH_SECRET` and redeploy.",
+    "Required secrets missing: BETTER_AUTH_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET. Run `wrangler secret put …` for each (or adapt buildAuthFromEnv to your chosen method) and redeploy.",
 } as const;
+
+// Mirrors the methods[] construction in buildAuthFromEnv — createAuth
+// throws if methods[] is empty, so a worker with the secret but no
+// GitHub creds would crash on first request instead of returning 503.
+function authIsConfigured(env: Env): boolean {
+  return Boolean(
+    env.BETTER_AUTH_SECRET && env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
+  );
+}
 
 function buildAuthFromEnv(env: Env): Auth {
   const baseURL = env.PUBLIC_ORIGIN ?? "http://localhost:8787";
@@ -263,24 +272,21 @@ function getProvider(env: Env): CachedProvider {
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (!env.BETTER_AUTH_SECRET) {
+    if (!authIsConfigured(env)) {
       return Response.json(AUTH_NOT_CONFIGURED, { status: 503 });
     }
     return getProvider(env).fetch(req, env, ctx);
   },
 
+  // Queue + scheduled don't gate on auth bindings: they don't use Better
+  // Auth or the OAuth provider, and dropping order/payment work on a
+  // misconfigured deploy is worse than letting the message throw and
+  // surface via Workers Queues retry + DLQ.
   async queue(
     batch: MessageBatch<unknown>,
     env: Env,
     ctx: ExecutionContext,
   ): Promise<void> {
-    if (!env.BETTER_AUTH_SECRET) {
-      console.warn(
-        `[transaction queue] env not ready (no BETTER_AUTH_SECRET); acking batch '${batch.queue}'`,
-      );
-      batch.ackAll();
-      return;
-    }
     const dispatch = buildQueueDispatcher(env);
     return dispatch(batch, env, ctx);
   },
@@ -296,12 +302,6 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<void> {
-    if (!env.BETTER_AUTH_SECRET) {
-      console.warn(
-        `[transaction scheduled] env not ready (no BETTER_AUTH_SECRET); skipping tick`,
-      );
-      return;
-    }
     ctx.waitUntil(
       sendOrderWork(env.ORDER_WORK_QUEUE, {
         type: "inventory.reconcile.tick",

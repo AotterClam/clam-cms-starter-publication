@@ -167,7 +167,7 @@ curl -i -X POST http://localhost:8787/api/contact \
 # Staff MCP smoke uses the test profile's pre-minted Better Auth MCP
 # token. Local dev browser sign-in uses real GitHub OAuth; no stub
 # bearer is accepted on the dev profile.
-curl -i -X POST http://localhost:8788/staff/mcp \
+curl -i -X POST http://localhost:8788/mcp/staff \
   -H 'authorization: Bearer fixture-mcp-access-token' \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}'
@@ -297,7 +297,7 @@ Prerequisites:
 
 8. **Owner sign-in.** Visit `<worker_url>/admin` in a browser, sign in with GitHub. `ensureBootstrapOwner` promotes you to `owner` on first login because `ADMIN_GITHUB_LOGIN` matches.
 
-9. **MCP operator smoke.** Open Claude Code / Cursor / Codex in any working directory; configure the MCP client with `<worker_url>/staff/mcp`. The first connection opens the consent screen — approve it with the same GitHub account.
+9. **MCP operator smoke.** Open Claude Code / Cursor / Codex in any working directory; configure the MCP client with `<worker_url>/mcp/staff`. The first connection opens the consent screen — approve it with the same GitHub account.
 
    Then ask the agent to:
 
