@@ -38,8 +38,8 @@ export { InventoryActor } from "./durableObjects/InventoryActor.js";
  * Procedures via the runtime — same code path MCP / POST-Trigger
  * dispatch uses).
  *
- * Queue consumer: routes `payment_callback_queue` +
- * `order_work_queue` (both `max_concurrency: 1`) to the dispatcher
+ * Queue consumer: routes `payment-callback-queue` +
+ * `order-work-queue` (both `max_concurrency: 1`) to the dispatcher
  * in `src/handlers/orderConsumer.ts`.
  */
 let appCache: { app: Hono; cms: CmsRuntimeRef } | null = null;
@@ -50,7 +50,42 @@ const AUTH_NOT_CONFIGURED = {
     "BETTER_AUTH_SECRET is required. Run `wrangler secret put BETTER_AUTH_SECRET` and redeploy.",
 } as const;
 
+// Paths that REQUIRE configured admin auth. Anything else (manifest-
+// declared HTTP triggers, Views, custom GET routes, /favicon.svg) keeps
+// rendering even when BETTER_AUTH_SECRET is missing — public previews
+// shouldn't fail closed because the operator hasn't wired admin yet.
+function pathRequiresAuth(pathname: string): boolean {
+  return (
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
+    pathname === "/mcp" ||
+    pathname.startsWith("/mcp/") ||
+    pathname === "/staff/mcp" ||
+    pathname.startsWith("/staff/mcp/") ||
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/oauth/") ||
+    pathname.startsWith("/.well-known/oauth")
+  );
+}
+
+let warnedAuthMissing = false;
+function noOpAuth(): Auth {
+  if (!warnedAuthMissing) {
+    warnedAuthMissing = true;
+    console.warn(
+      "[transaction] BETTER_AUTH_SECRET unset — serving public routes only; /admin /mcp /api/auth will return 503.",
+    );
+  }
+  return {
+    handler: async () => Response.json(AUTH_NOT_CONFIGURED, { status: 503 }),
+    getSession: async () => null,
+    getMcpSession: async () => null,
+    getUserRole: async () => null,
+  };
+}
+
 function buildAuthFromEnv(env: Env): Auth {
+  if (!env.BETTER_AUTH_SECRET) return noOpAuth();
   const baseURL = env.PUBLIC_ORIGIN ?? "http://localhost:8787";
   const github: CreateAuthConfig["github"] =
     env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
@@ -73,7 +108,6 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   const auth = buildAuthFromEnv(env);
   const cms = createCmsRef(buildCmsConfig(env, auth));
   const app = new Hono();
-  app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
 
   // CSRF gate on browser-origin POSTs. Mounted BEFORE
   // mountServerEndpoints so the middleware fires before the manifest-
@@ -83,7 +117,7 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   // gating rationale.
   app.use("/api/cart/add", csrfGuard);
   app.use("/api/checkout/start", csrfGuard);
-  app.use("/staff/api/restock", csrfGuard);
+  app.use("/api/staff/restock", csrfGuard);
 
   mountServerEndpoints(app, cms);
   mountMcp(app, cms, {
@@ -214,7 +248,7 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
   );
 
   // Test-only bypass: seed InventoryActor stock without going through
-  // the staff-gated `/staff/api/restock` (which needs a real session
+  // the staff-gated `/api/staff/restock` (which needs a real session
   // cookie). Gated on the SAME flag that gates FakeProvider, so this
   // is impossible to hit in production unless an operator explicitly
   // sets FAKE_PAYMENT_PROVIDER=1 (which would also disable real
@@ -254,7 +288,10 @@ function getApp(env: Env): { app: Hono; cms: CmsRuntimeRef } {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (!env.BETTER_AUTH_SECRET) {
-      return Response.json(AUTH_NOT_CONFIGURED, { status: 503 });
+      const url = new URL(req.url);
+      if (pathRequiresAuth(url.pathname)) {
+        return Response.json(AUTH_NOT_CONFIGURED, { status: 503 });
+      }
     }
     return getApp(env).app.fetch(req, env, ctx);
   },

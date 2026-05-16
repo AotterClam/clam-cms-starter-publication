@@ -97,17 +97,15 @@ export function buildCmsConfig(env: Env, auth: Auth): CmsConfig {
     handlers: buildHandlers(env),
     templates: buildTemplates(),
     siteDefaults: {
-      brand: "Clam Transaction",
-      title: "Clam Transaction",
-      description: "Reference transaction starter for clam-cms — products + cart + checkout via configurable payment provider.",
+      brand: "{{BRAND}}",
+      title: "{{BRAND}}",
+      description: "{{DESCRIPTION}}",
       origin: "https://example.com",
-      // `{{LOCALES}}` is substituted by @aotterclam/create-clam-cms at
-      // install time (ADR-0016). Defensive parse: pre-substitution +
-      // CI builds + contributor `pnpm dev` see the raw `{{LOCALES}}`
-      // string which isn't valid JSON; fall back to `["en"]` so the
-      // runtime boots and integration tests run. Post-substitution the
-      // first branch returns the configured array.
-      locales: parseLocales(),
+      // `{{LOCALES}}` is substituted by @aotterclam/create-clam-cms at install
+      // time (ADR-0016). JSON.parse keeps this file TS-valid pre-substitution
+      // so contributors can `pnpm typecheck` the starter directly; the runtime
+      // cost is one tiny parse at worker cold-start.
+      locales: JSON.parse('{{LOCALES}}') as readonly string[],
     },
     publicPathResolver: PUBLIC_PATH_RESOLVER,
     bindings: {
@@ -158,15 +156,3 @@ function buildMediaStorage(env: Env): { mediaStorage?: R2MediaStorage } {
   };
 }
 
-function parseLocales(): readonly string[] {
-  const raw = "{{LOCALES}}";
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.every((s) => typeof s === "string")) {
-      return parsed;
-    }
-  } catch {
-    // pre-substitution / fixture / CI — fall through to default.
-  }
-  return ["en"];
-}
