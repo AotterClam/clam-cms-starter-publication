@@ -1,6 +1,6 @@
-# `clam-mantle-starters/transaction`
+# `mantle-starters/transaction`
 
-`transaction` archetype starter for clam-mantle v0.1.0 — small-scale
+`transaction` archetype starter for mantle v0.1.0 — small-scale
 shop (≤100 orders/day): products + cart + payment + orders. Backed
 by Cloudflare Workers + D1 + KV + DurableObjects + Queues.
 
@@ -56,7 +56,7 @@ cycle:
   detail / cart / checkout / order confirmation page templates;
   `transaction/SKILL.md` flipped from roadmap-refuse to ready;
   `sources.json` adds transaction to the `archetypes` dict (until
-  this lands, the directory exists but `npx create-clam-mantle transaction`
+  this lands, the directory exists but `npx create-mantle transaction`
   refuses).
 
 ## Getting started
@@ -76,7 +76,7 @@ pnpm test:integration
 ```
 
 Real-user installs go through the Mantle install Skill — see the
-[Mantle install brief](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/install/SKILL.md)
+[Mantle install brief](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/install/SKILL.md)
 and this starter's [`SKILL.md`](SKILL.md), which carries the payment
 provider interview + scaffolding procedure.
 
@@ -84,4 +84,4 @@ provider interview + scaffolding procedure.
 
 - [`SKILL.md`](SKILL.md) — Mantle's install-time interview + provider wiring
 - [`src/payment/providers/README.md`](src/payment/providers/README.md) — provider templates explained
-- [`skills/extend`](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/extend/SKILL.md) — adding Schemas / Views / Procedures / Triggers
+- [`skills/extend`](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/extend/SKILL.md) — adding Schemas / Views / Procedures / Triggers

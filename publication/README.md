@@ -1,6 +1,6 @@
-# `clam-mantle-starters/publication`
+# `mantle-starters/publication`
 
-Reference `publication` starter for clam-mantle v0.1.0 — the
+Reference `publication` starter for mantle v0.1.0 — the
 owner-published-content family in the starter taxonomy (#58). Covers
 landing pages, articles, docs-lite, project updates, and basic contact
 capture. Not for inventory / order workflows (`micro-shop`), lead
@@ -224,7 +224,7 @@ Before deploying THIS starter as-is:
 
 ## Production smoke recipe
 
-End-to-end verification on a real Cloudflare account, ~20 min. Run this whenever the starter ships, an SDK release lands, or before declaring a v0.1.x release tag clean. Closes [#25](https://github.com/AotterClam/clam-mantle/issues/25)'s production-smoke acceptance bullet.
+End-to-end verification on a real Cloudflare account, ~20 min. Run this whenever the starter ships, an SDK release lands, or before declaring a v0.1.x release tag clean. Closes [#25](https://github.com/AotterClam/mantle/issues/25)'s production-smoke acceptance bullet.
 
 Prerequisites:
 
@@ -317,10 +317,10 @@ Prerequisites:
 
 ### What this proves
 
-- Pinned-Skill install path works end-to-end ([#22](https://github.com/AotterClam/clam-mantle/issues/22))
-- Provision + deploy creates real CF resources ([#23](https://github.com/AotterClam/clam-mantle/issues/23))
-- Standalone GitHub-only install + MCP smoke ([#24](https://github.com/AotterClam/clam-mantle/issues/24))
-- Blog/publication vertical end-to-end ([#25](https://github.com/AotterClam/clam-mantle/issues/25))
+- Pinned-Skill install path works end-to-end ([#22](https://github.com/AotterClam/mantle/issues/22))
+- Provision + deploy creates real CF resources ([#23](https://github.com/AotterClam/mantle/issues/23))
+- Standalone GitHub-only install + MCP smoke ([#24](https://github.com/AotterClam/mantle/issues/24))
+- Blog/publication vertical end-to-end ([#25](https://github.com/AotterClam/mantle/issues/25))
 
 ### When this fails
 
