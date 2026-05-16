@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Entry } from "@aotterclam/clam-mantle/spec";
+import type { Entry } from "@aotterclam/mantle/spec";
 import {
   createAuth,
   createCmsRef,
@@ -11,7 +11,7 @@ import {
   type Auth,
   type AuthMethodConfig,
   type PublicRouteContext,
-} from "@aotterclam/clam-mantle/cloudflare";
+} from "@aotterclam/mantle/cloudflare";
 import { buildCmsConfig, type Env } from "./clamConfig.js";
 import { baseline } from "./themeWiring.js";
 

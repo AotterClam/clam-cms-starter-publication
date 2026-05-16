@@ -1,18 +1,18 @@
 ---
 archetype: presence
 status: ready
-starter_repo: AotterClam/clam-mantle-starters
+starter_repo: AotterClam/mantle-starters
 starter_path: presence
 overlays: []
 ---
 
 # `presence` archetype
 
-Follow the [Mantle install brief](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/install/SKILL.md). This file only adds the archetype-specific register hints; Mantle voice rules apply only to the closing welcome letter, not to interview / refuse / adjustment phases.
+Follow the [Mantle install brief](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/install/SKILL.md). This file only adds the archetype-specific register hints; Mantle voice rules apply only to the closing welcome letter, not to interview / refuse / adjustment phases.
 
 ## What this is
 
-A small public site that exists to **be there** — a brand page, an event page, a personal page, a quiet hotel-lobby kind of presence. Light on content, heavy on tone. Own starter directory in `clam-mantle-starters/presence/`; trimmed for the presence shape (`pages` + `page-translations` + `contact-messages`; no `posts`).
+A small public site that exists to **be there** — a brand page, an event page, a personal page, a quiet hotel-lobby kind of presence. Light on content, heavy on tone. Own starter directory in `mantle-starters/presence/`; trimmed for the presence shape (`pages` + `page-translations` + `contact-messages`; no `posts`).
 
 ## Interview probes to emphasize
 
@@ -40,4 +40,4 @@ Open the admin and list the current collections. Then draft the home for "{{BRAN
 
 ## Schema/View/Procedure extensions
 
-None. `presence` ships ready-to-go. Customization belongs in [`skills/customize-design`](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/customize-design/SKILL.md) after deploy.
+None. `presence` ships ready-to-go. Customization belongs in [`skills/customize-design`](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/customize-design/SKILL.md) after deploy.

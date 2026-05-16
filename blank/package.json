@@ -1,23 +1,23 @@
 {
-  "name": "clam-mantle-starter-blank",
+  "name": "mantle-starter-blank",
   "version": "0.0.8-alpha",
   "private": true,
-  "description": "Headless CMS starter for clam-mantle \u2014 API + MCP only, no public HTML rendering. Bring your own frontend.",
+  "description": "Headless CMS starter for mantle \u2014 API + MCP only, no public HTML rendering. Bring your own frontend.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "validate": "clam-mantle validate",
+    "validate": "mantle validate",
     "mantle:prompt": "node scripts/mantle.mjs prompt",
-    "introspect": "clam-mantle introspect",
-    "emit-openapi": "clam-mantle emit-openapi > openapi.json",
-    "emit-types": "clam-mantle emit-types --namespace BlankCms > clam-types.d.ts",
+    "introspect": "mantle introspect",
+    "emit-openapi": "mantle emit-openapi > openapi.json",
+    "emit-types": "mantle emit-types --namespace BlankCms > clam-types.d.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "pnpm validate && pnpm typecheck",
     "deploy": "wrangler deploy",
     "setup:site": "node scripts/setup-site.mjs"
   },
   "dependencies": {
-    "@aotterclam/clam-mantle": "0.0.10-alpha",
+    "@aotterclam/mantle": "0.0.11-alpha",
     "hono": "^4.6.20"
   },
   "devDependencies": {

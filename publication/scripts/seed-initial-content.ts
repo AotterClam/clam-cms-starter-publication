@@ -19,8 +19,8 @@ import {
   listHtmlKey,
   llmsTxtKey,
   serializeEntryAsMarkdown,
-} from "@aotterclam/clam-mantle/runtime";
-import type { ContentState, Entry, SiteConfig } from "@aotterclam/clam-mantle/spec";
+} from "@aotterclam/mantle/runtime";
+import type { ContentState, Entry, SiteConfig } from "@aotterclam/mantle/spec";
 import { baseline } from "../src/themeWiring.js";
 import { PUBLIC_PATH_RESOLVER } from "../src/paths.js";
 
@@ -277,7 +277,7 @@ function escapeSql(s: string): string {
 
 function buildSql(seed: NormalizedSeed, now: number): string {
   const lines: string[] = [];
-  lines.push("-- clam-mantle initial content seed (idempotent).");
+  lines.push("-- mantle initial content seed (idempotent).");
   for (const m of CANONICAL_MIGRATIONS) {
     lines.push(`-- migration ${m.id}: ${m.description}`);
     lines.push(m.sql.trim());

@@ -1,8 +1,8 @@
-# `clam-mantle-starters/blank`
+# `mantle-starters/blank`
 
 **Headless CMS starter.** Ships zero UI. Use this when you have your own
 frontend (Next.js, Astro, SvelteKit, native iOS/Android, partner
-integration) and want clam-mantle purely as a content + auth + MCP backend.
+integration) and want mantle purely as a content + auth + MCP backend.
 
 If you want a working public site out of the box with HTML chrome,
 i18n, theme stack, and contact form, use the sibling
@@ -19,7 +19,7 @@ ALL  /mcp                         User/read MCP JSON-RPC dispatcher
 
 No public read routes (`/{locale}/...`, `/sitemap.xml`, `.md` mirrors,
 `llms.txt`). Add `mountPublicRoutes` from
-`@aotterclam/clam-mantle/cloudflare` if you change your mind.
+`@aotterclam/mantle/cloudflare` if you change your mind.
 
 ### Auth
 
@@ -34,7 +34,7 @@ claiming a custom production workflow.
 ## Layout
 
 ```
-clam-mantle-starters/blank/
+mantle-starters/blank/
 ├── manifests/example.yaml     # one-file demo: Schema + View
 ├── src/
 │   ├── index.ts               # worker entrypoint (mountServerEndpoints + mountMcp)
@@ -74,12 +74,12 @@ example View executing against an empty `notes` collection.
 
 ## What you get from the npm packages
 
-`@aotterclam/clam-mantle/cloudflare` mounts the routes above against
-`@aotterclam/clam-mantle/runtime` use cases. Nothing is starter-specific
+`@aotterclam/mantle/cloudflare` mounts the routes above against
+`@aotterclam/mantle/runtime` use cases. Nothing is starter-specific
 once you've wired the bindings — bearer-token MCP auth, view executor,
 and HTTP Trigger dispatcher all come straight from the runtime packages.
 
 If your frontend renders posts (or anything you'd like to expose for
 LLM crawlers), the runtime can ship an `.md` mirror of any entry; see
-`@aotterclam/clam-mantle/runtime/serializeEntryAsMarkdown` and
+`@aotterclam/mantle/runtime/serializeEntryAsMarkdown` and
 `composeLlmsTxt`.

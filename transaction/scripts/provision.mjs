@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Single-shot provision orchestrator for clam-mantle-starter-publication.
+ * Single-shot provision orchestrator for mantle-starter-publication.
  *
  * Two subcommands:
  *

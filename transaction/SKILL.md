@@ -1,7 +1,7 @@
 ---
 archetype: transaction
 status: ready
-starter_repo: AotterClam/clam-mantle-starters
+starter_repo: AotterClam/mantle-starters
 starter_path: transaction
 overlays: []
 scale_limit: 100  # orders/day; advisory — Mantle informs user
@@ -87,7 +87,7 @@ Open the admin and list the products collection (should be empty). Then draft th
 
 ## Payment provider wiring (your job during install)
 
-Run AFTER `create-clam-mantle` scaffolds the directory and BEFORE provision. The starter's `src/payment/index.ts` is a fail-loud stub that throws "PaymentProvider not configured" until you replace it.
+Run AFTER `create-mantle` scaffolds the directory and BEFORE provision. The starter's `src/payment/index.ts` is a fail-loud stub that throws "PaymentProvider not configured" until you replace it.
 
 ### Step 1 — pick the template
 
@@ -170,6 +170,6 @@ The agent-author surface stays inside v0.1 manifest grammar — no DRAFT keys, n
 
 ## See also
 
-- [`skills/extend`](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/extend/SKILL.md) — adding additional Schemas / Views / Procedures / Triggers after install.
-- [`skills/customize-design`](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/customize-design/SKILL.md) — theming the product / cart / checkout pages (PR 4).
+- [`skills/extend`](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/extend/SKILL.md) — adding additional Schemas / Views / Procedures / Triggers after install.
+- [`skills/customize-design`](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/customize-design/SKILL.md) — theming the product / cart / checkout pages (PR 4).
 - [`src/payment/providers/README.md`](src/payment/providers/README.md) — provider wiring details + the two pattern templates.

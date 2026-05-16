@@ -29,11 +29,11 @@ export function downloadAndExtractTarball(
     throw new Error(
       `Premium starters are not yet available. Source: ${source.repo}. ` +
         `Re-run with a public archetype (presence / publication / intake / blank), ` +
-        `or wait for clam-mantle-starters-premium content to ship.`,
+        `or wait for mantle-starters-premium content to ship.`,
     );
   }
   const url = `https://codeload.github.com/${source.repo}/tar.gz/${ref}`;
-  const extractTo = mkdtempSync(join(tmpdir(), "create-clam-mantle-"));
+  const extractTo = mkdtempSync(join(tmpdir(), "create-mantle-"));
   execFileSync("curl", ["-fsSL", "-o", join(extractTo, "archive.tgz"), url], {
     stdio: ["ignore", "ignore", "inherit"],
   });

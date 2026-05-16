@@ -9,7 +9,7 @@ import {
   type Auth,
   type AuthMethodConfig,
   type CmsRuntimeRef,
-} from "@aotterclam/clam-mantle/cloudflare";
+} from "@aotterclam/mantle/cloudflare";
 import { buildCmsConfig, type Env } from "./clamConfig.js";
 import { csrfGuard } from "./csrf.js";
 import { invokeHandler } from "./handlers/_context.js";

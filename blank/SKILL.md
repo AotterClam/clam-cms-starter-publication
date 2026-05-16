@@ -1,18 +1,18 @@
 ---
 archetype: blank
 status: ready
-starter_repo: AotterClam/clam-mantle-starters
+starter_repo: AotterClam/mantle-starters
 starter_path: blank
 overlays: []
 ---
 
 # `blank` archetype
 
-Follow the [Mantle install brief](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/install/SKILL.md). This file only adds the archetype-specific register hints; Mantle voice rules apply only to the closing welcome letter, not to interview / refuse / adjustment phases.
+Follow the [Mantle install brief](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/install/SKILL.md). This file only adds the archetype-specific register hints; Mantle voice rules apply only to the closing welcome letter, not to interview / refuse / adjustment phases.
 
 ## What this is
 
-Headless CMS backend — API + MCP only, no public HTML. The user is bringing their own frontend (Next.js / Astro / SvelteKit / iOS / partner integration) and wants clam-mantle purely as content + auth + MCP. Schema design happens **after** deploy through the `extend` skill.
+Headless CMS backend — API + MCP only, no public HTML. The user is bringing their own frontend (Next.js / Astro / SvelteKit / iOS / partner integration) and wants mantle purely as content + auth + MCP. Schema design happens **after** deploy through the `extend` skill.
 
 ## Interview probes to emphasize
 
@@ -40,8 +40,8 @@ Open the admin and list current collections (the example one should be there). S
 
 ## Schema/View/Procedure extensions
 
-Defer all schema design to [`skills/extend`](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/extend/SKILL.md). The starter ships exactly one demo Schema/View (`notes` / `published-notes`); during install, do **not** add custom manifests. The user designs theirs after deploy.
+Defer all schema design to [`skills/extend`](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/extend/SKILL.md). The starter ships exactly one demo Schema/View (`notes` / `published-notes`); during install, do **not** add custom manifests. The user designs theirs after deploy.
 
 ## See also
 
-- [`skills/extend`](https://raw.githubusercontent.com/AotterClam/clam-mantle/main/skills/extend/SKILL.md) — designing the user's real Schemas / Views / Procedures / Triggers.
+- [`skills/extend`](https://raw.githubusercontent.com/AotterClam/mantle/main/skills/extend/SKILL.md) — designing the user's real Schemas / Views / Procedures / Triggers.
