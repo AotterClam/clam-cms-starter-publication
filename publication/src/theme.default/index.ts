@@ -1,16 +1,15 @@
 // @clam-override-class sdk-owned — see src/theme.default/README.md
 /**
- * Hono+JSX baseline UI for the @aotterclam/clam-mantle publication
- * starter. Adopter projects scaffolded from `publication/` install
- * this package as a tarball-URL dependency; importing from the
- * package is the only way to reach baseline UI primitives (the
- * package is in `node_modules` so an agent can't fork it in place).
+ * Hono+JSX baseline UI for the publication archetype. Inline baseline
+ * source — each file under `theme.default/` carries an
+ * `@clam-override-class` marker; see `./README.md` for the override
+ * model and the edit-in-place drift tradeoff.
  *
- * Customization model — everything plugs in at wire time via
- * `createPublicationBaseline({...})` in your `src/clamConfig.ts`:
+ * Customization plugs in at wire time via `createPublicationBaseline
+ * ({...})` from `src/themeWiring.ts`:
  *
  *   import { createPublicationBaseline, extendBundle } from
- *     "@aotterclam/clam-mantle-publication-baseline";
+ *     "./theme.default/index.js";
  *
  *   const { Layout, templates, buildTemplates } = createPublicationBaseline({
  *     // L1 — tokens via extraCss (`:root { --paper: #fff; }`)
