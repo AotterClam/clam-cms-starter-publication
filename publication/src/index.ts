@@ -13,11 +13,9 @@ import {
   type PublicRouteContext,
 } from "@aotterclam/clam-mantle/cloudflare";
 import { buildCmsConfig, type Env } from "./clamConfig.js";
-import {
-  contactTemplate,
-  homeTemplate,
-  notFoundTemplate,
-} from "./theme.default/templates/index.js";
+import { baseline } from "./themeWiring.js";
+
+const { home: homeTemplate, notFound: notFoundTemplate, contact: contactTemplate } = baseline.templates;
 
 type WorkerFetch = (req: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
 let workerFetchCache: WorkerFetch | null = null;
